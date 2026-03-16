@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>X Popular Link Filter</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <p class="eyebrow">X home timeline</p>
+        <h1>Popular Link Posts</h1>
+        <p class="description">
+          Collect link posts from the current home timeline and keep only high-engagement
+          items.
+        </p>
+      </header>
+
+      <section class="controls">
+        <button id="collect-button" type="button">Collect Now</button>
+        <p id="status" class="status idle">Ready</p>
+        <p id="summary" class="summary"></p>
+      </section>
+
+      <section class="results">
+        <ul id="results-list" class="results-list"></ul>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

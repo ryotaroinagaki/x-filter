@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "X Popular Link Filter",
+  "version": "0.1.0",
+  "description": "Collect popular link posts from the X home timeline.",
+  "permissions": ["activeTab", "tabs"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "X Popular Link Filter",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
