@@ -1,11 +1,11 @@
 const DEFAULT_CONFIG = {
-  maxScrolls: 8,
+  maxScrolls: 30,
   scrollDelayMs: 1400,
-  idleRoundsLimit: 2,
+  fallbackLimit: 10,
   thresholds: {
-    likes: 100,
-    reposts: 50,
-    replies: 20
+    likes: 30,
+    reposts: 10,
+    replies: 5
   }
 };
 
@@ -49,10 +49,7 @@ async function handleStartCollection(partialConfig = {}) {
   const config = mergeConfig(DEFAULT_CONFIG, partialConfig);
 
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      type: "COLLECT_POPULAR_LINK_POSTS",
-      config
-    });
+    const response = await sendCollectionMessage(tab.id, config);
 
     if (!response) {
       return {
@@ -73,6 +70,29 @@ async function handleStartCollection(partialConfig = {}) {
   }
 }
 
+async function sendCollectionMessage(tabId, config) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, {
+      type: "COLLECT_POPULAR_LINK_POSTS",
+      config
+    });
+  } catch (error) {
+    if (!isMissingReceiverError(error)) {
+      throw error;
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content.js"]
+    });
+
+    return chrome.tabs.sendMessage(tabId, {
+      type: "COLLECT_POPULAR_LINK_POSTS",
+      config
+    });
+  }
+}
+
 function isSupportedUrl(urlString) {
   const url = new URL(urlString);
   const isX = url.hostname === "x.com" || url.hostname === "twitter.com";
@@ -88,4 +108,11 @@ function mergeConfig(baseConfig, partialConfig) {
       ...(partialConfig?.thresholds ?? {})
     }
   };
+}
+
+function isMissingReceiverError(error) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Could not establish connection. Receiving end does not exist.")
+  );
 }

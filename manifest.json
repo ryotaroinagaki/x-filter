@@ -3,14 +3,24 @@
   "name": "X Popular Link Filter",
   "version": "0.1.0",
   "description": "Collect popular link posts from the X home timeline.",
-  "permissions": ["activeTab", "tabs"],
+  "permissions": ["activeTab", "tabs", "scripting"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "background": {
     "service_worker": "background.js"
   },
+  "icons": {
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
   "action": {
     "default_title": "X Popular Link Filter",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "32": "assets/icon32.png"
+    }
   },
   "content_scripts": [
     {

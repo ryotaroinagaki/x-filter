@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">X Popular Link Filter Icon</title>
+  <desc id="desc">A warm-toned icon combining a link symbol and a filter funnel.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff7ef" />
+      <stop offset="100%" stop-color="#edd9c5" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cb6a34" />
+      <stop offset="100%" stop-color="#8f3d16" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="116" height="116" rx="30" fill="url(#bg)" />
+  <circle cx="64" cy="64" r="52" fill="#f7ebdf" stroke="#dcb899" stroke-width="2" />
+  <path
+    d="M39 44c4-4 10.5-4 14.5 0l8 8c4 4 4 10.5 0 14.5s-10.5 4-14.5 0l-8-8c-4-4-4-10.5 0-14.5Zm26.5 17.5c4-4 10.5-4 14.5 0l8 8c4 4 4 10.5 0 14.5s-10.5 4-14.5 0l-8-8c-4-4-4-10.5 0-14.5ZM48 80l32-32"
+    fill="none"
+    stroke="url(#accent)"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="10"
+  />
+  <path
+    d="M82 24H108L90 48v18l-10 6V48L62 24Z"
+    fill="#1d211c"
+    opacity="0.92"
+  />
+</svg>

@@ -37,52 +37,35 @@ async function collectPopularLinkPosts(config) {
   ensureSupportedPage();
 
   const postMap = new Map();
-  let idleRounds = 0;
-  let previousCount = 0;
+  collectVisiblePosts(postMap);
 
-  for (let scrollIndex = 0; scrollIndex <= config.maxScrolls; scrollIndex += 1) {
-    collectVisiblePosts(postMap);
-
-    if (scrollIndex === config.maxScrolls) {
-      break;
-    }
-
-    if (postMap.size === previousCount) {
-      idleRounds += 1;
-    } else {
-      idleRounds = 0;
-    }
-
-    if (idleRounds >= config.idleRoundsLimit) {
-      break;
-    }
-
-    previousCount = postMap.size;
+  for (let scrollIndex = 0; scrollIndex < config.maxScrolls; scrollIndex += 1) {
     window.scrollBy({
       top: Math.max(window.innerHeight * 0.9, 700),
       behavior: "smooth"
     });
 
     await wait(config.scrollDelayMs);
+    collectVisiblePosts(postMap);
   }
 
-  const items = Array.from(postMap.values())
-    .filter((post) => passesThreshold(post, config.thresholds))
-    .sort((left, right) => {
-      if (right.likeCount !== left.likeCount) {
-        return right.likeCount - left.likeCount;
-      }
-      if (right.repostCount !== left.repostCount) {
-        return right.repostCount - left.repostCount;
-      }
-      return right.replyCount - left.replyCount;
-    });
+  const candidatePosts = Array.from(postMap.values());
+  const popularPosts = sortPostsByPopularity(
+    candidatePosts.filter((post) => passesThreshold(post, config.thresholds))
+  );
+  const usedFallback = popularPosts.length === 0 && candidatePosts.length > 0;
+  const displayedPosts = usedFallback
+    ? buildFallbackPosts(candidatePosts, config.fallbackLimit)
+    : popularPosts;
 
   return {
     status: "ok",
-    scannedCount: postMap.size,
-    matchedCount: items.length,
-    items
+    scannedCount: candidatePosts.length,
+    matchedCount: popularPosts.length,
+    displayedCount: displayedPosts.length,
+    usedFallback,
+    items: displayedPosts,
+    popularPosts: displayedPosts
   };
 }
 
@@ -289,6 +272,27 @@ function passesThreshold(post, thresholds) {
     post.repostCount >= thresholds.reposts ||
     post.replyCount >= thresholds.replies
   );
+}
+
+function sortPostsByPopularity(posts) {
+  return [...posts].sort((left, right) => {
+    if (right.likeCount !== left.likeCount) {
+      return right.likeCount - left.likeCount;
+    }
+    if (right.repostCount !== left.repostCount) {
+      return right.repostCount - left.repostCount;
+    }
+    return right.replyCount - left.replyCount;
+  });
+}
+
+function buildFallbackPosts(candidatePosts, fallbackLimit) {
+  return sortPostsByPopularity(candidatePosts)
+    .slice(0, fallbackLimit)
+    .map((post) => ({
+      ...post,
+      isFallback: true
+    }));
 }
 
 function normalizeUrl(input) {

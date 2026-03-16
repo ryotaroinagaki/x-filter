@@ -5,7 +5,7 @@ const resultsList = document.getElementById("results-list");
 
 collectButton.addEventListener("click", async () => {
   setLoadingState(true);
-  setStatus("Collecting visible and scrolled posts...", "loading");
+  setStatus("Auto-scrolling and collecting posts...", "loading");
   summaryNode.textContent = "";
   renderResults([]);
 
@@ -18,9 +18,12 @@ collectButton.addEventListener("click", async () => {
       throw new Error(response?.error ?? "Collection failed.");
     }
 
+    const popularPosts = response.popularPosts ?? response.items ?? [];
     setStatus("Collection finished.", "success");
-    summaryNode.textContent = `Scanned ${response.scannedCount} posts, matched ${response.matchedCount}.`;
-    renderResults(response.items);
+    summaryNode.textContent = response.usedFallback
+      ? `Scanned ${response.scannedCount} posts. No posts met the threshold, so showing the top ${response.displayedCount} fallback posts.`
+      : `Scanned ${response.scannedCount} posts, found ${response.matchedCount} popular posts.`;
+    renderResults(popularPosts);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Collection failed.", "error");
     summaryNode.textContent = "";
@@ -48,7 +51,7 @@ function renderResults(items) {
   if (!items.length) {
     const emptyItem = document.createElement("li");
     emptyItem.className = "empty-state";
-    emptyItem.textContent = "No results yet.";
+    emptyItem.textContent = "No popular posts found.";
     resultsList.append(emptyItem);
     return;
   }
@@ -58,7 +61,9 @@ function renderResults(items) {
 
     const meta = document.createElement("p");
     meta.className = "result-meta";
-    meta.textContent = `${item.authorName} ${item.authorHandle}`;
+    meta.textContent = item.isFallback
+      ? `${item.authorName} ${item.authorHandle} · Fallback`
+      : `${item.authorName} ${item.authorHandle}`;
 
     const text = document.createElement("p");
     text.className = "result-text";
