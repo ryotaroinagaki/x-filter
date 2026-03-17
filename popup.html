@@ -9,16 +9,18 @@
   <body>
     <main class="app">
       <header class="header">
-        <p class="eyebrow">X home timeline</p>
-        <h1>Popular Link Posts</h1>
-        <p class="description">
-          Collect link posts from the current home timeline and keep only high-engagement
-          items.
-        </p>
+        <span class="x-logo">𝕏</span>
+        <div class="header-text">
+          <h1>Popular Link Posts</h1>
+          <p class="description">High-engagement posts from your home timeline</p>
+        </div>
       </header>
 
       <section class="controls">
-        <button id="collect-button" type="button">Collect Now</button>
+        <div class="button-row">
+          <button id="collect-button" type="button">Collect Now</button>
+          <button id="monitor-button" type="button">Start Monitoring</button>
+        </div>
         <p id="status" class="status idle">Ready</p>
         <p id="summary" class="summary"></p>
       </section>
@@ -26,6 +28,7 @@
       <section class="results">
         <ul id="results-list" class="results-list"></ul>
       </section>
+    <div id="post-preview" class="post-preview" hidden></div>
     </main>
 
     <script src="popup.js"></script>

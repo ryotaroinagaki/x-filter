@@ -1,53 +1,189 @@
 const SUPPORTED_HOSTS = new Set(["x.com", "twitter.com"]);
 const COLLECTION_LOCK = {
-  inFlight: false
+  inFlight: false,
+  stopRequested: false
 };
+const MONITOR_STATE = { observer: null, postMap: new Map() };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "COLLECT_POPULAR_LINK_POSTS") {
-    return false;
-  }
-
-  if (COLLECTION_LOCK.inFlight) {
-    sendResponse({
-      status: "error",
-      error: "A collection is already running."
-    });
-    return false;
-  }
-
-  COLLECTION_LOCK.inFlight = true;
-
-  collectPopularLinkPosts(message.config)
-    .then(sendResponse)
-    .catch((error) => {
+  if (message?.type === "COLLECT_POPULAR_LINK_POSTS") {
+    if (COLLECTION_LOCK.inFlight) {
       sendResponse({
         status: "error",
-        error: error instanceof Error ? error.message : "Unknown collection error"
+        error: "A collection is already running."
       });
-    })
-    .finally(() => {
-      COLLECTION_LOCK.inFlight = false;
-    });
+      return false;
+    }
 
-  return true;
+    COLLECTION_LOCK.inFlight = true;
+
+    collectPopularLinkPosts(message.config)
+      .then(sendResponse)
+      .catch((error) => {
+        sendResponse({
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown collection error"
+        });
+      })
+      .finally(() => {
+        COLLECTION_LOCK.inFlight = false;
+      });
+
+    return true;
+  }
+
+  if (message?.type === "START_MONITORING") {
+    try {
+      ensureSupportedPage();
+      startMonitoring(message.config);
+      sendResponse({ status: "ok" });
+    } catch (error) {
+      sendResponse({
+        status: "error",
+        error: error instanceof Error ? error.message : "Failed to start monitoring"
+      });
+    }
+    return false;
+  }
+
+  if (message?.type === "STOP_COLLECTION") {
+    COLLECTION_LOCK.stopRequested = true;
+    sendResponse({ status: "ok" });
+    return false;
+  }
+
+  if (message?.type === "STOP_MONITORING") {
+    try {
+      const result = stopMonitoring(message.config);
+      sendResponse(result);
+    } catch (error) {
+      sendResponse({
+        status: "error",
+        error: error instanceof Error ? error.message : "Failed to stop monitoring"
+      });
+    }
+    return false;
+  }
+
+  return false;
 });
+
+function startMonitoring(config) {
+  MONITOR_STATE.postMap.clear();
+  collectVisiblePosts(MONITOR_STATE.postMap);
+
+  MONITOR_STATE.observer = new MutationObserver((mutations) => {
+    let added = false;
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        const articles = node.matches('article[data-testid="tweet"]')
+          ? [node]
+          : [...node.querySelectorAll('article[data-testid="tweet"]')];
+        for (const article of articles) {
+          const post = extractPostFromArticle(article);
+          if (!post) continue;
+          if (!MONITOR_STATE.postMap.has(post.postId)) {
+            MONITOR_STATE.postMap.set(post.postId, post);
+            added = true;
+          }
+        }
+      }
+    }
+    if (added) {
+      chrome.runtime.sendMessage({
+        type: "MONITOR_PROGRESS",
+        scannedCount: MONITOR_STATE.postMap.size
+      });
+    }
+  });
+
+  MONITOR_STATE.observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function stopMonitoring(config) {
+  if (MONITOR_STATE.observer) {
+    MONITOR_STATE.observer.disconnect();
+    MONITOR_STATE.observer = null;
+  }
+  const candidatePosts = Array.from(MONITOR_STATE.postMap.values());
+  const thresholds = config?.thresholds ?? { minScore: 30 };
+  const fallbackLimit = config?.fallbackLimit ?? 10;
+  const popularPosts = sortPostsByPopularity(
+    candidatePosts.filter((post) => passesThreshold(post, thresholds))
+  );
+  const usedFallback = popularPosts.length === 0 && candidatePosts.length > 0;
+  const displayedPosts = usedFallback
+    ? buildFallbackPosts(candidatePosts, fallbackLimit)
+    : popularPosts;
+  return {
+    status: "ok",
+    scannedCount: candidatePosts.length,
+    matchedCount: popularPosts.length,
+    displayedCount: displayedPosts.length,
+    usedFallback,
+    items: displayedPosts,
+    popularPosts: displayedPosts
+  };
+}
 
 async function collectPopularLinkPosts(config) {
   ensureSupportedPage();
 
+  COLLECTION_LOCK.stopRequested = false;
+
   const postMap = new Map();
   collectVisiblePosts(postMap);
 
-  for (let scrollIndex = 0; scrollIndex < config.maxScrolls; scrollIndex += 1) {
-    window.scrollBy({
-      top: Math.max(window.innerHeight * 0.9, 700),
-      behavior: "smooth"
-    });
+  const SCROLL_PX = 60;
+  const TICK_MS = 100;
+  const COLLECT_EVERY = 14; // collect visible posts every 14 ticks (~1.4s)
 
-    await wait(config.scrollDelayMs);
-    collectVisiblePosts(postMap);
-  }
+  const totalScrollPx = Math.max(window.innerHeight * 0.9, 700) * config.maxScrolls;
+  const totalTicks = Math.ceil(totalScrollPx / SCROLL_PX);
+  const totalCollections = Math.ceil(totalTicks / COLLECT_EVERY);
+
+  let stoppedEarly = false;
+
+  await new Promise((resolve) => {
+    let tick = 0;
+    let collectionsDone = 0;
+
+    const interval = setInterval(() => {
+      if (COLLECTION_LOCK.stopRequested) {
+        clearInterval(interval);
+        stoppedEarly = true;
+        resolve();
+        return;
+      }
+
+      window.scrollBy({ top: SCROLL_PX, behavior: "instant" });
+      tick++;
+
+      if (tick % COLLECT_EVERY === 0) {
+        collectVisiblePosts(postMap);
+        collectionsDone++;
+
+        const currentPosts = sortPostsByPopularity(
+          Array.from(postMap.values()).filter((post) => passesThreshold(post, config.thresholds))
+        );
+        chrome.runtime.sendMessage({
+          type: "COLLECTION_PROGRESS",
+          scrollIndex: collectionsDone,
+          totalScrolls: totalCollections,
+          posts: currentPosts,
+          scannedCount: postMap.size
+        });
+      }
+
+      if (tick >= totalTicks) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, TICK_MS);
+  });
+
+  collectVisiblePosts(postMap);
 
   const candidatePosts = Array.from(postMap.values());
   const popularPosts = sortPostsByPopularity(
@@ -60,6 +196,7 @@ async function collectPopularLinkPosts(config) {
 
   return {
     status: "ok",
+    stoppedEarly,
     scannedCount: candidatePosts.length,
     matchedCount: popularPosts.length,
     displayedCount: displayedPosts.length,
@@ -106,9 +243,6 @@ function extractPostFromArticle(article) {
   }
 
   const externalUrl = extractExternalUrl(article);
-  if (!externalUrl) {
-    return null;
-  }
 
   const metrics = extractMetrics(article);
   const authorHandle = extractHandleFromPostUrl(postUrl);
@@ -127,8 +261,28 @@ function extractPostFromArticle(article) {
     likeCount: metrics.likes,
     repostCount: metrics.reposts,
     replyCount: metrics.replies,
-    createdAt
+    createdAt,
+    images: extractImages(article),
+    repostBy: extractRepostContext(article)
   };
+}
+
+function extractImages(article) {
+  const imgs = article.querySelectorAll('[data-testid="tweetPhoto"] img');
+  return [...imgs]
+    .map(img => img.src.replace(/name=[^&]+/, "name=small"))
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function extractRepostContext(article) {
+  const ctx = article.querySelector('[data-testid="socialContext"]');
+  if (!ctx) return null;
+  const text = ctx.textContent?.trim() ?? "";
+  if (!text.includes("Repost") && !text.includes("Retweeted")) return null;
+  const anchor = ctx.querySelector("a[href]");
+  const profileUrl = anchor ? normalizeUrl(anchor.getAttribute("href")) : null;
+  return { label: text, profileUrl };
 }
 
 function findPostAnchor(article) {
@@ -267,22 +421,18 @@ function extractPostId(postUrl) {
 }
 
 function passesThreshold(post, thresholds) {
-  return (
-    post.likeCount >= thresholds.likes ||
-    post.repostCount >= thresholds.reposts ||
-    post.replyCount >= thresholds.replies
-  );
+  const score =
+    post.likeCount * 1 +
+    post.repostCount * 3 +
+    post.replyCount * 2;
+  return score >= thresholds.minScore;
 }
 
 function sortPostsByPopularity(posts) {
-  return [...posts].sort((left, right) => {
-    if (right.likeCount !== left.likeCount) {
-      return right.likeCount - left.likeCount;
-    }
-    if (right.repostCount !== left.repostCount) {
-      return right.repostCount - left.repostCount;
-    }
-    return right.replyCount - left.replyCount;
+  return [...posts].sort((a, b) => {
+    const scoreA = a.likeCount * 1 + a.repostCount * 3 + a.replyCount * 2;
+    const scoreB = b.likeCount * 1 + b.repostCount * 3 + b.replyCount * 2;
+    return scoreB - scoreA;
   });
 }
 
