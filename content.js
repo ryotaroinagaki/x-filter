@@ -73,6 +73,16 @@ function startMonitoring(config) {
   collectVisiblePosts(MONITOR_STATE.postMap);
 
   MONITOR_STATE.observer = new MutationObserver((mutations) => {
+    const hasNewArticles = mutations.some(m =>
+      Array.from(m.addedNodes).some(n =>
+        n instanceof Element && (
+          n.matches('article[data-testid="tweet"]') ||
+          n.querySelector?.('article[data-testid="tweet"]')
+        )
+      )
+    );
+    if (!hasNewArticles) return;
+
     let added = false;
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
@@ -98,7 +108,8 @@ function startMonitoring(config) {
     }
   });
 
-  MONITOR_STATE.observer.observe(document.body, { childList: true, subtree: true });
+  const timelineTarget = document.querySelector('[data-testid="primaryColumn"]') || document.body;
+  MONITOR_STATE.observer.observe(timelineTarget, { childList: true, subtree: true });
 }
 
 function stopMonitoring(config) {
@@ -107,7 +118,7 @@ function stopMonitoring(config) {
     MONITOR_STATE.observer = null;
   }
   const candidatePosts = Array.from(MONITOR_STATE.postMap.values());
-  const thresholds = config?.thresholds ?? { minScore: 30 };
+  const thresholds = config?.thresholds ?? { minScore: 10000 };
   const fallbackLimit = config?.fallbackLimit ?? 10;
   const popularPosts = sortPostsByPopularity(
     candidatePosts.filter((post) => passesThreshold(post, thresholds))
@@ -129,6 +140,8 @@ function stopMonitoring(config) {
 
 async function collectPopularLinkPosts(config) {
   ensureSupportedPage();
+
+  const savedScrollY = window.scrollY;
 
   COLLECTION_LOCK.stopRequested = false;
 
@@ -193,6 +206,8 @@ async function collectPopularLinkPosts(config) {
   const displayedPosts = usedFallback
     ? buildFallbackPosts(candidatePosts, config.fallbackLimit)
     : popularPosts;
+
+  window.scrollTo({ top: savedScrollY, behavior: "instant" });
 
   return {
     status: "ok",
@@ -313,6 +328,9 @@ function extractExternalUrl(article) {
 
     const normalized = normalizeUrl(href);
     const url = new URL(normalized);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      continue;
+    }
     const isXHost = SUPPORTED_HOSTS.has(url.hostname);
     const isStatusLink = /\/status\/\d+/.test(url.pathname);
     const isProfileLink = !isStatusLink && /^\/[^/]+$/.test(url.pathname);
@@ -420,20 +438,16 @@ function extractPostId(postUrl) {
   return match?.[1] ?? null;
 }
 
+function calculateScore(post) {
+  return post.likeCount * 1 + post.repostCount * 3 + post.replyCount * 2;
+}
+
 function passesThreshold(post, thresholds) {
-  const score =
-    post.likeCount * 1 +
-    post.repostCount * 3 +
-    post.replyCount * 2;
-  return score >= thresholds.minScore;
+  return calculateScore(post) >= thresholds.minScore;
 }
 
 function sortPostsByPopularity(posts) {
-  return [...posts].sort((a, b) => {
-    const scoreA = a.likeCount * 1 + a.repostCount * 3 + a.replyCount * 2;
-    const scoreB = b.likeCount * 1 + b.repostCount * 3 + b.replyCount * 2;
-    return scoreB - scoreA;
-  });
+  return [...posts].sort((a, b) => calculateScore(b) - calculateScore(a));
 }
 
 function buildFallbackPosts(candidatePosts, fallbackLimit) {
@@ -451,12 +465,6 @@ function normalizeUrl(input) {
 
 function normalizeExternalValue(value) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
-}
-
-function wait(ms) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
 }
 
 function extractNumberFromString(value) {

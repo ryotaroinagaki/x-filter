@@ -1,13 +1,23 @@
+chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS" });
+
 const DEFAULT_CONFIG = {
   maxScrolls: 30,
   scrollDelayMs: 1400,
   fallbackLimit: 10,
   thresholds: {
-    minScore: 30
+    minScore: 10000
   }
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "CHECK_TAB") {
+    chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+      const supported = tab?.url ? isSupportedUrl(tab.url) : false;
+      sendResponse({ supported });
+    });
+    return true;
+  }
+
   if (message?.type === "START_COLLECTION") {
     handleStartCollection(message.config)
       .then(sendResponse)

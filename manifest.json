@@ -3,7 +3,7 @@
   "name": "X Popular Link Filter",
   "version": "0.1.0",
   "description": "Collect popular link posts from the X home timeline.",
-  "permissions": ["activeTab", "tabs", "scripting"],
+  "permissions": ["activeTab", "tabs", "scripting", "storage"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "background": {
     "service_worker": "background.js"
@@ -25,6 +25,16 @@
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "exclude_matches": [
+        "https://x.com/settings/*",
+        "https://x.com/messages/*",
+        "https://x.com/i/*",
+        "https://x.com/notifications",
+        "https://twitter.com/settings/*",
+        "https://twitter.com/messages/*",
+        "https://twitter.com/i/*",
+        "https://twitter.com/notifications"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

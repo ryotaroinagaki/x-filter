@@ -16,16 +16,55 @@
         </div>
       </header>
 
-      <section class="controls">
+      <section id="onboarding" class="onboarding" hidden>
+        <div class="onboarding-icon">𝕏</div>
+        <h2 class="onboarding-title">Xのホームタイムラインを開いてください</h2>
+        <ol class="onboarding-steps">
+          <li>Xのホームタイムラインを開く</li>
+          <li>この拡張機能のポップアップを開く</li>
+          <li>スキャンまたはモニタリングを開始</li>
+        </ol>
+        <button id="open-home-button" type="button">Xのホームを開く</button>
+      </section>
+
+      <section id="controls" class="controls" hidden>
+        <div class="filter-row">
+          <div class="threshold-row">
+            <label for="min-score">Min Score</label>
+            <input id="min-score" type="number" min="0" step="10" value="10000" />
+          </div>
+          <label class="toggle-label">
+            <input id="links-only" type="checkbox" />
+            <span class="toggle-switch"></span>
+            <span class="toggle-text">Links only</span>
+          </label>
+        </div>
         <div class="button-row">
-          <button id="collect-button" type="button">Collect Now</button>
-          <button id="monitor-button" type="button">Start Monitoring</button>
+          <div class="mode-card">
+            <button id="collect-button" type="button">Collect Now</button>
+            <p class="mode-desc">TLを自動スクロールして一括収集</p>
+          </div>
+          <div class="mode-card">
+            <button id="monitor-button" type="button">Start Monitoring</button>
+            <p class="mode-desc">あなたの閲覧中にバックグラウンド収集</p>
+          </div>
         </div>
         <p id="status" class="status idle">Ready</p>
         <p id="summary" class="summary"></p>
       </section>
 
       <section class="results">
+        <div class="results-toolbar">
+          <span id="results-count" class="results-count"></span>
+          <div class="toolbar-actions">
+            <button id="export-btn" class="export-btn" disabled>Export</button>
+            <select id="sort-select" class="sort-select">
+              <option value="score">Score</option>
+              <option value="likes">Likes</option>
+              <option value="newest">Newest</option>
+            </select>
+          </div>
+        </div>
         <ul id="results-list" class="results-list"></ul>
       </section>
     <div id="post-preview" class="post-preview" hidden></div>
