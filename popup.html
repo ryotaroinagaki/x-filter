@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>X Popular Link Filter</title>
+    <title>X TL Filter</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -11,63 +11,37 @@
       <header class="header">
         <span class="x-logo">𝕏</span>
         <div class="header-text">
-          <h1>Popular Link Posts</h1>
-          <p class="description">High-engagement posts from your home timeline</p>
+          <h1>TL Filter</h1>
+          <p class="description">低エンゲージメント投稿をタイムラインから非表示</p>
         </div>
       </header>
 
-      <section id="onboarding" class="onboarding" hidden>
-        <div class="onboarding-icon">𝕏</div>
-        <h2 class="onboarding-title">Xのホームタイムラインを開いてください</h2>
-        <ol class="onboarding-steps">
-          <li>Xのホームタイムラインを開く</li>
-          <li>この拡張機能のポップアップを開く</li>
-          <li>スキャンまたはモニタリングを開始</li>
-        </ol>
-        <button id="open-home-button" type="button">Xのホームを開く</button>
-      </section>
-
-      <section id="controls" class="controls" hidden>
+      <section class="settings">
         <div class="filter-row">
-          <div class="threshold-row">
-            <label for="min-score">Min Score</label>
-            <input id="min-score" type="number" min="0" step="10" value="10000" />
-          </div>
           <label class="toggle-label">
-            <input id="links-only" type="checkbox" />
+            <input id="inline-filter" type="checkbox" />
             <span class="toggle-switch"></span>
-            <span class="toggle-text">Links only</span>
+            <span class="toggle-text">フィルターON</span>
           </label>
         </div>
-        <div class="button-row">
-          <div class="mode-card">
-            <button id="collect-button" type="button">Collect Now</button>
-            <p class="mode-desc">TLを自動スクロールして一括収集</p>
-          </div>
-          <div class="mode-card">
-            <button id="monitor-button" type="button">Start Monitoring</button>
-            <p class="mode-desc">あなたの閲覧中にバックグラウンド収集</p>
-          </div>
+        <div class="threshold-row">
+          <label for="min-score">デフォルトしきい値</label>
+          <input id="min-score" type="number" min="0" step="10" value="10000" />
         </div>
-        <p id="status" class="status idle">Ready</p>
-        <p id="summary" class="summary"></p>
+        <p class="hint">Raw Score（いいね + リポスト×3 + リプライ×2）がしきい値未満の投稿を非表示にします。</p>
       </section>
 
-      <section class="results">
-        <div class="results-toolbar">
-          <span id="results-count" class="results-count"></span>
-          <div class="toolbar-actions">
-            <button id="export-btn" class="export-btn" disabled>Export</button>
-            <select id="sort-select" class="sort-select">
-              <option value="score">Score</option>
-              <option value="likes">Likes</option>
-              <option value="newest">Newest</option>
-            </select>
-          </div>
+      <section class="user-thresholds">
+        <h2>ユーザー別しきい値</h2>
+        <div class="add-user-row">
+          <input id="user-handle" type="text" placeholder="@handle" />
+          <input id="user-threshold" type="number" min="0" step="10" value="0" />
+          <button id="add-user-btn" type="button">追加</button>
         </div>
-        <ul id="results-list" class="results-list"></ul>
+        <p class="hint">0 = 常に表示。正数 = そのユーザー専用しきい値。</p>
+        <ul id="user-threshold-list" class="user-threshold-list"></ul>
+        <p id="empty-hint" class="empty-hint">ユーザー別の設定はありません。</p>
       </section>
-    <div id="post-preview" class="post-preview" hidden></div>
     </main>
 
     <script src="popup.js"></script>
